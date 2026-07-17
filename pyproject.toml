@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quora-insincere-questions"
+version = "0.1.0"
+description = "Quora Insincere Questions NLP classification experiments."
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "pandas",
+  "scikit-learn",
+  "tensorflow",
+  "tqdm",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
