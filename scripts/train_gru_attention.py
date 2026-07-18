@@ -8,8 +8,10 @@ from quora_insincere.features.embeddings import build_embedding_matrix, load_emb
 from quora_insincere.features.sequences import prepare_sequences
 from quora_insincere.features.text import clean_text_v2
 from quora_insincere.models.gru_attention import build_gru_attention_model
+from quora_insincere.models.gru_attention import AttentionPooling
 from quora_insincere.utils.metrics import find_best_threshold
 from quora_insincere.utils.training import make_class_weight_dict, make_early_stopping
+from tensorflow.keras.models import load_model
 
 
 def main():
@@ -35,21 +37,31 @@ def main():
         tokenizer, embeddings_index, config.max_vocab_size, config.embed_dim
     )
 
-    model = build_gru_attention_model(
-        config.max_len,
-        config.max_vocab_size + 1,
-        config.embed_dim,
-        embedding_matrix,
-    )
-    model.fit(
-        X_train_pad,
-        y_train,
-        validation_data=(X_val_pad, y_val),
-        epochs=config.epochs,
-        batch_size=config.batch_size,
-        class_weight=make_class_weight_dict(y_train),
-        callbacks=[make_early_stopping()],
-    )
+    if paths.gru_input_model.exists():
+        print(f"Found pinned GRU model. Loading: {paths.gru_input_model}")
+        model = load_model(paths.gru_input_model, custom_objects={"AttentionPooling": AttentionPooling})
+    elif paths.gru_working_model.exists():
+        print(f"Found saved GRU model. Loading: {paths.gru_working_model}")
+        model = load_model(paths.gru_working_model, custom_objects={"AttentionPooling": AttentionPooling})
+    else:
+        print("No saved GRU model found. Training from scratch...")
+        model = build_gru_attention_model(
+            config.max_len,
+            config.max_vocab_size + 1,
+            config.embed_dim,
+            embedding_matrix,
+        )
+        model.fit(
+            X_train_pad,
+            y_train,
+            validation_data=(X_val_pad, y_val),
+            epochs=config.epochs,
+            batch_size=config.batch_size,
+            class_weight=make_class_weight_dict(y_train),
+            callbacks=[make_early_stopping()],
+        )
+        paths.gru_working_model.parent.mkdir(parents=True, exist_ok=True)
+        model.save(paths.gru_working_model)
 
     y_val_proba = model.predict(X_val_pad, batch_size=config.batch_size).squeeze()
     best_threshold, best_f1 = find_best_threshold(y_val, y_val_proba)
@@ -58,10 +70,7 @@ def main():
 
     test_predictions = (model.predict(X_test_pad, batch_size=config.batch_size).squeeze() >= best_threshold).astype(int)
     save_submission(test_df, test_predictions, Path(paths.output_dir) / "gru_attention_submission.csv")
-    Path(paths.model_dir).mkdir(parents=True, exist_ok=True)
-    model.save(Path(paths.model_dir) / "gru_attention_model.keras")
 
 
 if __name__ == "__main__":
     main()
-

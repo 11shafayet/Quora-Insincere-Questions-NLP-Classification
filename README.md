@@ -6,7 +6,13 @@ Clean project version of the Kaggle notebook:
 
 `notebooks/quora-insincere-questions-nlp-classification.ipynb`
 
-The notebook is copied exactly from the attached updated notebook and kept as the source narrative. The reusable project code is split into small modules under `src/`.
+Source Kaggle notebook:
+
+https://www.kaggle.com/code/mdshafayeturrahman/quora-insincere-questions-nlp-classification
+
+Current imported Kaggle version: `335946262`, modified `2026-07-17`.
+
+The notebook is kept as the source narrative. The reusable project code is split into small modules under `src/`.
 
 ## Structure
 
@@ -38,8 +44,8 @@ The notebook is copied exactly from the attached updated notebook and kept as th
 ## Models
 
 - `baseline_tfidf.py`: TF-IDF + Logistic Regression baseline.
-- `lstm.py`: Bidirectional LSTM with frozen GloVe embeddings.
-- `gru_attention.py`: Bidirectional GRU with custom attention pooling.
+- `lstm.py`: Bidirectional LSTM with frozen GloVe embeddings. The latest notebook keeps the LSTM cells commented out, but the separated script remains available.
+- `gru_attention.py`: Bidirectional GRU with custom attention pooling and saved-model fallback.
 
 ## Run
 
@@ -58,4 +64,3 @@ python scripts/train_gru_attention.py
 ```
 
 The defaults target Kaggle competition paths. For local runs, update `src/quora_insincere/config.py` or pass equivalent paths in your own wrapper.
-

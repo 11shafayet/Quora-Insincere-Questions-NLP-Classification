@@ -10,6 +10,7 @@ from quora_insincere.features.text import clean_text_v2
 from quora_insincere.models.lstm import build_lstm_model
 from quora_insincere.utils.metrics import find_best_threshold
 from quora_insincere.utils.training import make_class_weight_dict, make_early_stopping
+from tensorflow.keras.models import load_model
 
 
 def main():
@@ -35,21 +36,31 @@ def main():
         tokenizer, embeddings_index, config.max_vocab_size, config.embed_dim
     )
 
-    model = build_lstm_model(
-        config.max_len,
-        config.max_vocab_size + 1,
-        config.embed_dim,
-        embedding_matrix,
-    )
-    model.fit(
-        X_train_pad,
-        y_train,
-        validation_data=(X_val_pad, y_val),
-        epochs=config.epochs,
-        batch_size=config.batch_size,
-        class_weight=make_class_weight_dict(y_train),
-        callbacks=[make_early_stopping()],
-    )
+    if paths.lstm_input_model.exists():
+        print(f"Found pinned LSTM model. Loading: {paths.lstm_input_model}")
+        model = load_model(paths.lstm_input_model)
+    elif paths.lstm_working_model.exists():
+        print(f"Found saved LSTM model. Loading: {paths.lstm_working_model}")
+        model = load_model(paths.lstm_working_model)
+    else:
+        print("No saved LSTM model found. Training from scratch...")
+        model = build_lstm_model(
+            config.max_len,
+            config.max_vocab_size + 1,
+            config.embed_dim,
+            embedding_matrix,
+        )
+        model.fit(
+            X_train_pad,
+            y_train,
+            validation_data=(X_val_pad, y_val),
+            epochs=config.epochs,
+            batch_size=config.batch_size,
+            class_weight=make_class_weight_dict(y_train),
+            callbacks=[make_early_stopping()],
+        )
+        paths.lstm_working_model.parent.mkdir(parents=True, exist_ok=True)
+        model.save(paths.lstm_working_model)
 
     y_val_proba = model.predict(X_val_pad, batch_size=config.batch_size).squeeze()
     best_threshold, best_f1 = find_best_threshold(y_val, y_val_proba)
@@ -58,10 +69,7 @@ def main():
 
     test_predictions = (model.predict(X_test_pad, batch_size=config.batch_size).squeeze() >= best_threshold).astype(int)
     save_submission(test_df, test_predictions, Path(paths.output_dir) / "lstm_submission.csv")
-    Path(paths.model_dir).mkdir(parents=True, exist_ok=True)
-    model.save(Path(paths.model_dir) / "lstm_model.keras")
 
 
 if __name__ == "__main__":
     main()
-
